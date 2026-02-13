@@ -8,6 +8,26 @@ from app.db.session import SessionLocal
 from app.services.explorium_client import ExploriumClient
 
 
+def process_job_companies(job_id: str) -> None:
+    job_uuid = UUID(job_id)
+
+    db = SessionLocal()
+    try:
+        job = db.scalar(select(Job).where(Job.id == job_uuid))
+        if job is None:
+            return
+
+        job.status = "running"
+        db.commit()
+
+        company_ids = db.scalars(select(Company.id).where(Company.job_id == job_uuid)).all()
+    finally:
+        db.close()
+
+    for company_id in company_ids:
+        process_company(str(company_id))
+
+
 def process_company(company_id: str) -> None:
     company_uuid = UUID(company_id)
     db = SessionLocal()

@@ -2,24 +2,21 @@ import csv
 from io import StringIO
 from uuid import UUID
 
-import redis
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from rq import Queue
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.db.models import Company, Job
 from app.db.session import get_db
 from app.schemas.enrichment import CompanyOut, JobOut
+from app.workers.tasks import process_job_companies
 
 router = APIRouter(prefix="/api/v1", tags=["enrichment"])
-redis_conn = redis.from_url(settings.redis_url)
-queue = Queue("enrichment", connection=redis_conn)
 
 
 @router.post("/uploads", response_model=JobOut)
 async def upload_csv(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     org_id: str = Form(...),
     db: Session = Depends(get_db),
@@ -43,9 +40,7 @@ async def upload_csv(
     db.commit()
     db.refresh(job)
 
-    company_ids = db.scalars(select(Company.id).where(Company.job_id == job.id)).all()
-    for company_id in company_ids:
-        queue.enqueue("app.workers.tasks.process_company", str(company_id))
+    background_tasks.add_task(process_job_companies, str(job.id))
 
     return job
 

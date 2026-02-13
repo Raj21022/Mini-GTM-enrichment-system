@@ -6,7 +6,7 @@ This repo is a focused take-home implementation of a mini enrichment workflow.
 
 - Backend API for CSV upload and job tracking
 - PostgreSQL models for jobs and enriched companies
-- Redis + RQ worker for background enrichment processing
+- In-process background processing using FastAPI BackgroundTasks (free-tier friendly)
 - Next.js frontend to upload CSV, poll status, and view results
 - Docker Compose to run full stack locally
 
@@ -14,8 +14,8 @@ This repo is a focused take-home implementation of a mini enrichment workflow.
 
 - `POST /api/v1/uploads`: accepts CSV (`domain` column) + `org_id`
 - Creates a `job` and queued `company` records
-- Enqueues one background task per company
-- Worker enriches each company via Explorium API using a match step (`domain -> business_id`) then firmographics enrichment
+- Triggers background processing in backend (no separate worker required)
+- Enrichment flow uses Explorium match (`domain -> business_id`) then firmographics enrich
 - Frontend polls `/api/v1/jobs/{id}` and reads `/api/v1/jobs/{id}/companies`
 
 ## Run locally
@@ -57,13 +57,18 @@ notion.so
 ## Key tradeoffs
 
 - SQLAlchemy `create_all` on startup instead of Alembic to keep setup fast
-- One task per company for simple parallelism and straightforward retries
-- Basic retry/backoff in worker; no dead-letter queue yet
+- Background processing is in-process for free deployment compatibility
+- Basic retry/backoff in processing path; no dead-letter queue yet
+
+## Free deployment note
+
+- This project now runs without a separate Redis/worker service, so it can be deployed on free web-tier platforms more easily.
+- For production scale, move back to dedicated queue + worker.
 
 ## What I would improve next
 
 - Replace startup table creation with migrations (Alembic)
 - Add auth + org scoping middleware and RBAC
-- Add task dead-letter queue and richer retry policies
+- Re-introduce dedicated queue/worker for high throughput and isolation
 - Add request tracing and metrics (OpenTelemetry + Prometheus)
 - Add frontend caching/state via TanStack Query
