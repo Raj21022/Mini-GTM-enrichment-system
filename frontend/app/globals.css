@@ -1,66 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  color-scheme: light;
-  font-family: "Segoe UI", sans-serif;
+  --background: 39 62% 97%;
+  --foreground: 204 30% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 204 30% 14%;
+  --border: 26 26% 82%;
+  --input: 26 26% 82%;
+  --primary: 184 66% 32%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 38 40% 92%;
+  --muted-foreground: 203 20% 35%;
+  --radius: 0.75rem;
 }
 
 * {
-  box-sizing: border-box;
+  @apply border-border;
 }
 
 body {
-  margin: 0;
-  background: #f4f6f8;
-  color: #111827;
-}
-
-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 32px 16px 48px;
-}
-
-.card {
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-button {
-  border: 0;
-  border-radius: 8px;
-  padding: 10px 14px;
-  background: #0f766e;
-  color: #ffffff;
-  cursor: pointer;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-input {
-  padding: 10px;
-  border: 1px solid #9ca3af;
-  border-radius: 8px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 8px;
-  font-size: 14px;
-}
-
-.status {
-  font-size: 14px;
-  margin-top: 8px;
+  @apply bg-background text-foreground;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  background-image: radial-gradient(circle at 10% 10%, rgba(11, 95, 87, 0.08), transparent 32%),
+    radial-gradient(circle at 80% 20%, rgba(140, 97, 42, 0.1), transparent 35%);
 }

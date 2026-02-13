@@ -36,6 +36,8 @@ docker compose up --build
 
 - Frontend: `http://localhost:3000`
 - Backend docs: `http://localhost:8000/docs`
+- Backend (Render): `https://mini-gtm-enrichment-system-1.onrender.com/docs`
+- Live Demo: `https://mini-gtm-enrichment-system-2.onrender.com/`
 
 ## CSV format
 
@@ -72,3 +74,7 @@ notion.so
 - Re-introduce dedicated queue/worker for high throughput and isolation
 - Add request tracing and metrics (OpenTelemetry + Prometheus)
 - Add frontend caching/state via TanStack Query
+
+
+
+

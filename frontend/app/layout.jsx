@@ -1,5 +1,7 @@
 import "./globals.css";
 
+import { QueryProvider } from "../providers/query-provider";
+
 export const metadata = {
   title: "Outmate Mini Enrichment",
   description: "Mini GTM enrichment system take-home",
@@ -8,7 +10,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

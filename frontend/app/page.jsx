@@ -1,122 +1,138 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getCompanies, getJob, uploadCsv } from "../lib/api";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+
+import { uploadCsv, getJob, getCompanies } from "../lib/api";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { useEnrichmentStore } from "../store/use-enrichment-store";
 
 export default function Page() {
-  const [orgId, setOrgId] = useState("demo-org");
-  const [file, setFile] = useState(null);
-  const [job, setJob] = useState(null);
-  const [companies, setCompanies] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const { orgId, selectedFile, jobId, message, setOrgId, setSelectedFile, setJobId, setMessage, resetAfterUpload } =
+    useEnrichmentStore();
+
+  const uploadMutation = useMutation({
+    mutationFn: () => uploadCsv(selectedFile, orgId),
+    onMutate: () => {
+      resetAfterUpload();
+      setMessage("");
+    },
+    onSuccess: (job) => {
+      setJobId(job.id);
+      setMessage("Upload accepted. Processing started.");
+    },
+    onError: (err) => {
+      setMessage(err instanceof Error ? err.message : "Upload failed");
+    },
+  });
+
+  const jobQuery = useQuery({
+    queryKey: ["job", jobId],
+    queryFn: () => getJob(jobId),
+    enabled: Boolean(jobId),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === "done" || status === "failed") return false;
+      return 2000;
+    },
+  });
 
   const isFinished = useMemo(() => {
-    if (!job) return false;
-    return job.status === "done" || job.status === "failed";
-  }, [job]);
+    const status = jobQuery.data?.status;
+    return status === "done" || status === "failed";
+  }, [jobQuery.data?.status]);
 
-  async function handleSubmit(event) {
+  const companiesQuery = useQuery({
+    queryKey: ["companies", jobId],
+    queryFn: () => getCompanies(jobId),
+    enabled: Boolean(jobId) && isFinished,
+  });
+
+  function onSubmit(event) {
     event.preventDefault();
-    if (!file) {
+    if (!selectedFile) {
       setMessage("Please choose a CSV file.");
       return;
     }
-
-    setLoading(true);
-    setMessage("");
-    setCompanies([]);
-
-    try {
-      const nextJob = await uploadCsv(file, orgId);
-      setJob(nextJob);
-      setMessage("Upload accepted. Processing started.");
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setLoading(false);
-    }
+    uploadMutation.mutate();
   }
 
-  useEffect(() => {
-    if (!job || isFinished) return;
-
-    const timer = setInterval(async () => {
-      try {
-        const latest = await getJob(job.id);
-        setJob(latest);
-      } catch {
-        // keep polling on transient frontend errors
-      }
-    }, 2000);
-
-    return () => clearInterval(timer);
-  }, [job, isFinished]);
-
-  useEffect(() => {
-    if (!job || !isFinished) return;
-
-    getCompanies(job.id)
-      .then(setCompanies)
-      .catch(() => setMessage("Could not load enriched companies."));
-  }, [job, isFinished]);
-
   return (
-    <main>
-      <h1>Outmate Mini GTM Enrichment</h1>
-      <p>Upload a CSV with a <code>domain</code> column.</p>
-
-      <div className="card">
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <input value={orgId} onChange={(e) => setOrgId(e.target.value)} placeholder="org id" />
-            <input
-              type="file"
-              accept=".csv"
-              onChange={(e) => setFile((e.target.files && e.target.files[0]) || null)}
-            />
-            <button type="submit" disabled={loading}>{loading ? "Uploading..." : "Upload CSV"}</button>
-          </div>
-        </form>
-        {message ? <div className="status">{message}</div> : null}
+    <main className="mx-auto min-h-screen w-full max-w-6xl px-4 pb-12 pt-10 md:px-8">
+      <div className="mb-6">
+        <h1 className="text-3xl font-semibold tracking-tight">Outmate Mini GTM Enrichment</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Upload a CSV file with a <code>domain</code> column.</p>
       </div>
 
-      {job ? (
-        <div className="card">
-          <h2>Job Status</h2>
-          <p><strong>ID:</strong> {job.id}</p>
-          <p><strong>Status:</strong> {job.status}</p>
-          <p><strong>Processed:</strong> {job.processed}/{job.total}</p>
-          <p><strong>Failed:</strong> {job.failed}</p>
-        </div>
+      <Card className="mb-6 border-2">
+        <CardHeader>
+          <CardTitle>Upload</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-[220px_1fr_auto] md:items-center">
+              <Input value={orgId} onChange={(e) => setOrgId(e.target.value)} placeholder="org id" />
+              <Input type="file" accept=".csv" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+              <Button type="submit" disabled={uploadMutation.isPending}>
+                {uploadMutation.isPending ? "Uploading..." : "Upload CSV"}
+              </Button>
+            </div>
+            {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+          </form>
+        </CardContent>
+      </Card>
+
+      {jobQuery.data ? (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Job Status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p><span className="font-medium">ID:</span> {jobQuery.data.id}</p>
+            <p>
+              <span className="mr-2 font-medium">Status:</span>
+              <Badge status={jobQuery.data.status}>{jobQuery.data.status}</Badge>
+            </p>
+            <p><span className="font-medium">Processed:</span> {jobQuery.data.processed}/{jobQuery.data.total}</p>
+            <p><span className="font-medium">Failed:</span> {jobQuery.data.failed}</p>
+          </CardContent>
+        </Card>
       ) : null}
 
-      {companies.length > 0 ? (
-        <div className="card">
-          <h2>Enriched Companies</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Domain</th>
-                <th>Industry</th>
-                <th>Size</th>
-                <th>Revenue</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {companies.map((company) => (
-                <tr key={company.id}>
-                  <td>{company.domain}</td>
-                  <td>{company.industry || "-"}</td>
-                  <td>{company.company_size || "-"}</td>
-                  <td>{company.revenue_range || "-"}</td>
-                  <td>{company.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {companiesQuery.data?.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Enriched Companies</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Domain</TableHead>
+                  <TableHead>Industry</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead>Revenue</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {companiesQuery.data.map((company) => (
+                  <TableRow key={company.id}>
+                    <TableCell className="font-medium">{company.domain}</TableCell>
+                    <TableCell>{company.industry || "-"}</TableCell>
+                    <TableCell>{company.company_size || "-"}</TableCell>
+                    <TableCell>{company.revenue_range || "-"}</TableCell>
+                    <TableCell><Badge status={company.status}>{company.status}</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       ) : null}
     </main>
   );
